@@ -6,6 +6,7 @@ import time
 import traceback
 
 from app import redis
+from arch.msp430 import MSP430
 import config
 
 command_re = re.compile(r'^(?P<ack>[+\-])|^\$(?P<data>[^#]*)#(?P<checksum>[a-f0-9]{2})')
@@ -41,7 +42,7 @@ def unescape(s):
     return ''.join(out)
 
 
-class Client(object):
+class GDBClient(object):
     def __init__(self, sock):
         self.sock = sock
         self.buf = ''
@@ -50,61 +51,7 @@ class Client(object):
         self.no_ack_test = False
 
     def pump(self):
-        for line in self.recv():
-            if not line:
-                self.nak()
-                continue
-
-            b = line[0]
-            args = line[1:]
-            if ':' in args:
-                cmd, args = args.split(':', 1)
-            else:
-                cmd = args
-                args = ''
-            if b == '\x03':
-                print 'eot'
-            elif b == 'q': # query
-                if cmd == 'Supported':
-                    self.send('PacketSize=4000') # ;QStartNoAckMode+') # ;qXfer:features:read+;qXfer:memory-map:read+')
-                elif cmd == 'Attached':
-                    self.send('1')
-                elif cmd == 'Symbol':
-                    self.send('OK')
-                elif cmd == 'C':
-                    self.send('OK')
-                else:
-                    self.send('')
-            elif b == 'Q': # set query
-                if cmd == 'StartNoAckMode':
-                    self.no_ack_test = True
-                else:
-                    self.send('')
-            elif b == 'g': # read registers
-                self.send('1234')
-            elif b == 'G': # write registers
-                pass
-            elif b == 'm': # read memory
-                pass
-            elif b == 'M': # write memory
-                pass
-            elif b == 'c': # continue
-                pass
-            elif b == 's': # step
-                pass
-            elif b == '?': # last signal
-                self.wait_stop()
-            elif b == 'H': # set the thread
-                self.send('OK')
-            else:
-                print 'unknown command:', line
-                self.send('')
-                self.nak()
-
-    def wait_stop(self):
-        sig = 2
-        pc = 2
-        self.send('T%02x%02x:%s;' % (sig, pc, '00000001'))
+        raise NotImplementedError
 
     def recv(self):
         while True:
@@ -181,6 +128,76 @@ class Client(object):
             self.sock.close()
         except Exception:
             pass
+
+class Client(GDBClient):
+    def pump(self):
+        for line in self.recv():
+            if not line:
+                self.nak()
+                continue
+
+            b = line[0]
+            args = line[1:]
+            if ':' in args:
+                cmd, args = args.split(':', 1)
+            else:
+                cmd = args
+                args = ''
+            if b == '\x03':
+                print 'eot'
+            elif b == 'q': # query
+                if cmd == 'Supported':
+                    self.send('PacketSize=4000;qXfer:features:read+') # ;qXfer:memory-map:read+')
+                elif cmd == 'Attached':
+                    self.send('1')
+                elif cmd == 'Symbol':
+                    self.send('OK')
+                elif cmd == 'C':
+                    self.send('OK')
+                elif cmd == 'Xfer' and args.startswith('features:read:target.xml:'):
+                    args = args.rsplit(':', 1)[1]
+                    a, b = args.split(',', 1)
+                    a, b = int(a, 16), int(b, 16)
+                    self.send_tdesc(a, b)
+                else:
+                    self.send('')
+            elif b == 'Q': # set query
+                if cmd == 'StartNoAckMode':
+                    self.no_ack_test = True
+                else:
+                    self.send('')
+            elif b == 'g': # read registers
+                self.send('1234')
+            elif b == 'G': # write registers
+                pass
+            elif b == 'm': # read memory
+                pass
+            elif b == 'M': # write memory
+                pass
+            elif b == 'c': # continue
+                pass
+            elif b == 's': # step
+                pass
+            elif b == '?': # last signal
+                self.wait_stop()
+            elif b == 'H': # set the thread
+                self.send('OK')
+            else:
+                print 'unknown command:', line
+                self.send('')
+                self.nak()
+
+    def send_tdesc(self, addr, length):
+        desc = MSP430.tdesc()[addr:length]
+        if desc:
+            self.send('m' + desc)
+        else:
+            self.send('l')
+
+    def wait_stop(self):
+        sig = 2
+        pc = 2
+        self.send('T%02x%02x:%s;' % (sig, pc, '00000001'))
 
 
 class MicroGDB(object):
