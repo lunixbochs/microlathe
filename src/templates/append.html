@@ -1,0 +1,39 @@
+<script type="text/javascript">
+// some credit to https://gist.github.com/staticshock/8511868
+
+// Bind F7 to 'step'
+$(document).bind('keydown', function(e) { e.which == 118 && parse('s'); });
+
+// Add a 'readhex' command that works just like 'read' but dumps nothing but the hex
+cpu._readhex =
+    function(e) {
+        if (!e[1]) return write("   Please give an expression to read the memory at."), void 0;
+        var t = cpu.to_addr(e[1]);
+        cpu.get("/cpu/dbg/memory/" + t + "?len=" + (parseInt(e[2], 16) + (15 - parseInt(e[2], 16) & 15) || 32), function(e) {
+            for (var n = atob(e.raw), i = "", o = "  ", s = 0; s < n.length; s++) s % 2 == 0 && (o += " "), o += pad(n.charCodeAt(s).toString(16), 2), s % 8 == 7 && (i += "   " + o + "\n", o = "  ");
+            write(i);
+        })
+    };
+
+// Add a 'disassemble' command that takes the same arguments as read/readhex
+// and disassembles the instructions starting at that address
+cpu._disassemble =
+    function(e) {
+        if (!e[1]) return write("   Please give an expression to read the memory at."), void 0;
+        var t = cpu.to_addr(e[1]);
+        cpu.get("/cpu/dbg/memory/" + t + "?len=" + (parseInt(e[2], 16) + (15 - parseInt(e[2], 16) & 15) || 32), function(e) {
+            for (var n = atob(e.raw), i = "", o = "", s = 0; s < n.length; s++) s % 2 == 0 && (o += ""), o += pad(n.charCodeAt(s).toString(16), 2), s % 8 == 7 && (i += o, o = "");
+            cpu.get("/cpu/dbg/disasm?obj=" + i, function(e) {
+                write(e.error ? "ERROR: " + e.error : e.data.insns.join("\n"));
+            }, 1)
+        })
+    }; 
+
+cpu._dump = 
+    function(e) {
+        var iframe = $("<iframe/>").attr({
+            src: "/proxy/mem.bin",
+            style: "visibility:hidden; display:none"
+        }).appendTo(document.body);
+    }
+</script>

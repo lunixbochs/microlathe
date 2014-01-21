@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
 from datetime import timedelta
 from flask import (
-    request,
     Response,
+    render_template,
+    request,
 )
 import json
 from werkzeug.routing import Rule
@@ -34,10 +35,13 @@ def router(path=''):
                 meta['content'],
                 timedelta(minutes=120),
             )
+
+    if path == 'cpu/debugger':
+        response.data += render_template('append.html').encode('utf8')
     return response
 
 
 @app.route('/proxy/mem.bin')
-def bonus_dump():
+def proxy_dump():
     mem = ''.join(api.cpu.read(i, i + 1024) for i in xrange(0, 0xffff, 1024))
     return Response(mem, content_type='application/octet_stream')
