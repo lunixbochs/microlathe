@@ -43,5 +43,5 @@ def router(path=''):
 
 @app.route('/proxy/mem.bin')
 def proxy_dump():
-    mem = ''.join(api.cpu.read(i, i + 1024) for i in xrange(0, 0xffff, 1024))
+    mem = ''.join(api.cpu.read(i, 1024) for i in xrange(0, 0xffff, 1024))
     return Response(mem, content_type='application/octet_stream')
