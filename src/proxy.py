@@ -13,6 +13,7 @@ response_blacklist = (
     'content-length',
     'expires',
     'set-cookie',
+    'transfer-encoding',
 )
 
 request_blacklist = ('content-length', 'host') 
