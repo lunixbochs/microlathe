@@ -11,6 +11,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         port = int(sys.argv[1])
 
-    gdb.spawn()
+    # gdb.spawn()
+
     app.app.root_path = os.path.dirname(app.__file__)
     app.app.run(port=port, threaded=True, use_reloader=True, debug=True)
