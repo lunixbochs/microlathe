@@ -12,6 +12,8 @@ command_re = re.compile(r'^(?P<ack>[+\-])|^\$(?P<data>[^#]*)#(?P<checksum>[a-f0-
 
 
 def checksum(s):
+    if s is None:
+        return ''
     return '%0.2x' % (sum([ord(c) for c in s]) % 256)
 
 
@@ -43,10 +45,9 @@ class Client(object):
     def __init__(self, sock):
         self.sock = sock
         self.buf = ''
-        self.need_ack = False
         self.out = []
         self.no_ack = False
-        self.no_ack_queue = False
+        self.no_ack_test = False
 
     def pump(self):
         for line in self.recv():
@@ -54,7 +55,6 @@ class Client(object):
                 self.nak()
                 continue
 
-            self.ack()
             b = line[0]
             args = line[1:]
             if ':' in args:
@@ -62,26 +62,26 @@ class Client(object):
             else:
                 cmd = args
                 args = ''
-            if b == 'q': # query
+            if b == '\x03':
+                print 'eot'
+            elif b == 'q': # query
                 if cmd == 'Supported':
-                    self.queue('PacketSize=3fff') # ;QStartNoAckMode+')
+                    self.send('PacketSize=4000') # ;QStartNoAckMode+') # ;qXfer:features:read+;qXfer:memory-map:read+')
                 elif cmd == 'Attached':
-                    self.queue('1')
+                    self.send('1')
                 elif cmd == 'Symbol':
-                    self.queue('OK')
+                    self.send('OK')
                 elif cmd == 'C':
-                    self.queue('OK')
+                    self.send('OK')
                 else:
-                    self.queue('')
+                    self.send('')
             elif b == 'Q': # set query
                 if cmd == 'StartNoAckMode':
-                    self.ack()
-                    self.queue('OK')
-                    self.no_ack_queue = True
+                    self.no_ack_test = True
                 else:
-                    self.queue('')
+                    self.send('')
             elif b == 'g': # read registers
-                self.queue('1234')
+                self.send('1234')
             elif b == 'G': # write registers
                 pass
             elif b == 'm': # read memory
@@ -93,39 +93,52 @@ class Client(object):
             elif b == 's': # step
                 pass
             elif b == '?': # last signal
-                self.queue('S05')
+                self.wait_stop()
             elif b == 'H': # set the thread
-                self.queue('OK')
+                self.send('OK')
             else:
                 print 'unknown command:', line
-                self.queue('')
+                self.send('')
                 self.nak()
+
+    def wait_stop(self):
+        sig = 2
+        pc = 2
+        self.send('T%02x%02x:%s;' % (sig, pc, '00000001'))
 
     def recv(self):
         while True:
-            ready, _, _ = select.select([self.sock], [], [], 0.1)
-            if not ready:
+            if self.buf.startswith('\x03'):
+                self.buf = self.buf[1:]
+                yield '\x03'
                 continue
 
-            match = command_re.match(self.buf)
+            match = None
+            if self.buf:
+                match = command_re.match(self.buf)
+
             if match:
-                print '<- "{}"'.format(match.group())
                 add = len(match.group())
                 self.buf = self.buf[add:]
                 ack = match.group('ack')
                 if ack:
-                    self.got_ack(ack)
+                    if self.no_ack_test:
+                        if ack == '+':
+                            self.no_ack = True
+                        self.no_ack_test = False
                 else:
+                    print '<- "{}"'.format(match.group())
                     data = match.group('data')
+
                     chk = match.group('checksum')
                     if checksum(data) == chk.lower():
+                        self.ack()
                         yield unescape(data)
                     else:
                         print 'invalid chk'
                         self.nak()
             else:
                 if self.buf and '$' in self.buf:
-                    print 'might be truncating', self.buf.split('$', 1)[0]
                     self.buf = ''.join(self.buf.split('$', 1)[1:])
                     self.nak()
 
@@ -138,13 +151,13 @@ class Client(object):
     def ack(self):
         if self.no_ack:
             return
-        print '-> "+"'
+        # print '-> "+"'
         self.sock.send('+')
 
     def nak(self):
         if self.no_ack:
             return
-        print '-> "-"'
+        # print '-> "-"'
         self.sock.send('-')
 
     def send(self, data=''):
@@ -152,33 +165,6 @@ class Client(object):
         data = '$' + data + '#' + checksum(data)
         print '-> "{}"'.format(data)
         self.sock.send(data)
-
-    def queue(self, data=''):
-        if self.no_ack:
-            self.send(data)
-        elif not self.need_ack:
-            self.send(data)
-            self.out.append(data)
-            self.need_ack = True
-        else:
-            self.out.append(data)
-
-    def got_ack(self, ack):
-        print 'got_ack', ack, self.out
-        if self.no_ack:
-            return
-
-        if self.no_ack_queue:
-            self.no_ack_queue = False
-            if ack == '+':
-                self.no_ack = True
-
-        if ack == '+' and self.out:
-            self.out.pop(0)
-        if self.out:
-            self.send(self.out[0])
-        else:
-            self.need_ack = False
 
     def run(self):
         try:
