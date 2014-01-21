@@ -1,3 +1,4 @@
+import base64
 import json
 import requests
 import urllib
@@ -6,7 +7,11 @@ from app import redis
 import config
 
 
-class AuthError(Exception):
+class ApiError(Exception):
+    pass
+
+
+class AuthError(ApiError):
     pass
 
 
@@ -119,7 +124,11 @@ class CPU:
         return self.post('/cpu/debug/event', data={'addr': addr, 'event': -1})
 
     def read(self, addr, length):
-        return self.get('/cpu/dbg/memory/{}/?len={}'.format(addr, length))
+        data = self.get('/cpu/dbg/memory/{}?len={}'.format(addr, length))
+        if data['error']:
+            raise ApiError(data['error'])
+        else:
+            return base64.b64decode(data['raw'])
 
     def let(self, target, value):
         if target.startswith('r') or target in self.regs:
