@@ -115,7 +115,7 @@ class CPU:
         return self.get('/cpu/dbg/stepcount')
 
     def _continue(self):
-        return self.post('/cpu/dgb/continue')
+        return self.post('/cpu/dbg/continue')
 
     def _break(self, addr):
         return self.post('/cpu/dbg/event', data={'addr': addr, 'event': 0})
@@ -139,6 +139,9 @@ class CPU:
             self.set_reg(i, value)
         else:
             self.set_mem(i, value)
+
+    def snapshot(self):
+        return self.get('/cpu/snapshot')
 
 cpu = CPU()
 
