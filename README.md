@@ -1,7 +1,7 @@
 microlathe
 ==========
 
-Enhance your LockIT Pro JTAG experience (WIP).
+Enhance your LockIT Pro JTAG experience with a GDB stub.
 
 Usage
 ---------

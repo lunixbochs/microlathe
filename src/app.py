@@ -37,10 +37,4 @@ class WSGICopyBody(object):
 
 app.wsgi_app = WSGICopyBody(app.wsgi_app)
 
-
-@app.before_first_request
-def init():
-    import gdb
-    gdb.spawn()
-
 import views
