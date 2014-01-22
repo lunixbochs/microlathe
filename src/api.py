@@ -106,7 +106,7 @@ class CPU:
         if n > 1:
             return self.post('/cpu/dbg/stepn/{}'.format(n))
         else:
-            return self.post('/cpu/dbg/step')
+            return self.post('/cpu/step')
 
     def breakpoints(self):
         return self.get('/cpu/dbg/events')
