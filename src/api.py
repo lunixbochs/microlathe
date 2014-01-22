@@ -124,7 +124,7 @@ class CPU:
         return self.post('/cpu/dbg/event', data={'addr': addr, 'event': -1})
 
     def read(self, addr, length):
-        data = self.get('/cpu/dbg/memory/{}?len={}'.format(addr, length))
+        data = self.get('/cpu/dbg/memory/{:04x}?len={}'.format(addr, length))
         if data['error']:
             raise ApiError(data['error'])
         else:
