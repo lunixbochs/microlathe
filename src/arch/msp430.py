@@ -65,7 +65,15 @@ class CorruptionMSP(object):
         # super(self.__class__, self).__init__()
         self.api = api
         self.cpu = api.cpu
+        self.reset()
+
+    def reset(self):
         self.cache = MemBuffer(self.read_mem_raw)
+        self.cpu.reset()
+        print 'Level:', self.api.whoami()['level']
+
+    def send_input(self, line):
+        self.cpu.send_input(line)
 
     def read_regs(self):
         snapshot = self.cpu.snapshot()
@@ -99,10 +107,16 @@ class CorruptionMSP(object):
         start = time.time()
         while time.time() - start < timeout:
             state = self.cpu.snapshot()
+            output = state['new_output']
+            if output:
+                print
+                print output.decode('hex').strip()
+
             step = int(state['state'])
             pc = state['regs'][0]
             if step == 4:
-                print 'we need input'
+                line = raw_input('? ')
+                self.send_input(line)
             elif step == 2:
                 return 3, pc
             elif step == 1:

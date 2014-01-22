@@ -48,13 +48,15 @@ def swapb(h):
 
 
 class GDBClient(object):
-    def __init__(self, sock, cpu):
+    def __init__(self, sock, cpu, debug=False):
         self.sock = sock
         self.buf = ''
         self.out = []
         self.no_ack = False
         self.no_ack_test = False
         self.cpu = cpu
+        self.debug = debug
+        cpu.reset()
 
     def pump(self):
         raise NotImplementedError
@@ -80,7 +82,8 @@ class GDBClient(object):
                             self.no_ack = True
                         self.no_ack_test = False
                 else:
-                    print '<- "{}"'.format(match.group())
+                    if self.debug:
+                        print '<- "{}"'.format(match.group())
                     data = match.group('data')
 
                     chk = match.group('checksum')
@@ -88,7 +91,8 @@ class GDBClient(object):
                         self.ack()
                         yield unescape(data)
                     else:
-                        print 'invalid chk'
+                        if self.debug:
+                            print 'invalid chk'
                         self.nak()
             else:
                 if self.buf and '$' in self.buf:
@@ -116,7 +120,8 @@ class GDBClient(object):
     def send(self, data=''):
         data = escape(data)
         data = '$' + data + '#' + checksum(data)
-        print '-> "{}"'.format(data)
+        if self.debug:
+            print '-> "{}"'.format(data)
         self.sock.send(data)
 
     def run(self):
@@ -150,7 +155,9 @@ class Client(GDBClient):
                 cmd = args
                 args = ''
             if b == '\x03':
-                print 'eot' # ^C
+                pass
+                if self.debug:
+                    print 'eot' # ^C
 
             elif b == 'q': # query
                 if cmd == 'Supported':
@@ -170,6 +177,13 @@ class Client(GDBClient):
                     a, b = args.split(',', 1)
                     a, b = int(a, 16), int(b, 16)
                     self.send_tdesc(a, b)
+
+                elif cmd.startswith('Rcmd'):
+                    cmd = cmd.split(',', 1)[1].decode('hex')
+                    output = self.cpu.send_input(cmd)
+                    if output:
+                        self.send('O' + (output + '\n').encode('hex'))
+                    self.send('OK')
 
                 else:
                     self.send('')
@@ -217,7 +231,8 @@ class Client(GDBClient):
                 self.send('OK')
 
             else:
-                print 'unknown command:', line
+                if self.debug:
+                    print 'unknown command:', line
                 self.send('')
                 self.nak()
 

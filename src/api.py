@@ -94,7 +94,7 @@ class CPU:
         return j['data']['success']
 
     def send_input(self, data):
-        self.post('/cpu/send_input', data={'body': data})
+        return self.post('/cpu/send_input', data={'body': data})
 
     def step_out(self):
         return self.post('/cpu/dbg/step_out')
