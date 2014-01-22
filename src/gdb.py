@@ -188,7 +188,9 @@ class Client(GDBClient):
                 self.cpu.write_regs(regs)
 
             elif b == 'M': # write memory
-                print 'write memory STUB', args
+                addr, length = cmd.split(',', 1)
+                addr, length = int(addr, 16), int(length, 16)
+                self.cpu.write_mem(addr, args.decode('hex'))
 
             elif b == 'm': # read memory
                 addr, length = cmd.split(',', 1)
