@@ -5,5 +5,5 @@ REDIS_PREFIX = 'microcorruption_'
 COOKIE_KEY = REDIS_PREFIX + 'cookies'
 CSRF_KEY = REDIS_PREFIX + 'csrf'
 
-GDB_HOST = '0.0.0.0'
+GDB_HOST = 'localhost'
 GDB_PORT = 1338
