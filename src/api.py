@@ -121,7 +121,7 @@ class CPU:
         return self.post('/cpu/dbg/event', data={'addr': addr, 'event': 0})
 
     def unbreak(self, addr):
-        return self.post('/cpu/debug/event', data={'addr': addr, 'event': -1})
+        return self.post('/cpu/dbg/event', data={'addr': addr, 'event': -1})
 
     def read(self, addr, length):
         data = self.get('/cpu/dbg/memory/{}?len={}'.format(addr, length))

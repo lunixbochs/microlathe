@@ -8,7 +8,7 @@ import time
 import traceback
 
 from app import redis
-from arch.msp430 import MSP430
+from arch.msp430 import CorruptionMSP
 import config
 
 command_re = re.compile(r'^(?P<ack>[+\-])|^\$(?P<data>[^#]*)#(?P<checksum>[a-f0-9]{2})')
@@ -43,14 +43,18 @@ def unescape(s):
     out.append(s[-1])
     return ''.join(out)
 
+def swapb(h):
+    return ''.join(reversed([h[i:i + 2] for i in xrange(0, len(h), 2)]))
+
 
 class GDBClient(object):
-    def __init__(self, sock):
+    def __init__(self, sock, cpu):
         self.sock = sock
         self.buf = ''
         self.out = []
         self.no_ack = False
         self.no_ack_test = False
+        self.cpu = cpu
 
     def pump(self):
         raise NotImplementedError
@@ -146,51 +150,77 @@ class Client(GDBClient):
                 cmd = args
                 args = ''
             if b == '\x03':
-                print 'eot'
+                print 'eot' # ^C
+
             elif b == 'q': # query
                 if cmd == 'Supported':
-                    self.send('PacketSize=4000;qXfer:features:read+') # ;qXfer:memory-map:read+')
+                    self.send('PacketSize=4000') # ;qXfer:features:read+') # ;qXfer:memory-map:read+')
+
                 elif cmd == 'Attached':
                     self.send('1')
+
                 elif cmd == 'Symbol':
                     self.send('OK')
+
                 elif cmd == 'C':
                     self.send('OK')
+
                 elif cmd == 'Xfer' and args.startswith('features:read:target.xml:'):
                     args = args.rsplit(':', 1)[1]
                     a, b = args.split(',', 1)
                     a, b = int(a, 16), int(b, 16)
                     self.send_tdesc(a, b)
+
                 else:
                     self.send('')
+
             elif b == 'Q': # set query
                 if cmd == 'StartNoAckMode':
                     self.no_ack_test = True
                 else:
                     self.send('')
+
             elif b == 'g': # read registers
-                self.send('1234')
+                self.send(''.join(swapb('%04x' % i) for i in self.cpu.read_regs()))
+
             elif b == 'G': # write registers
-                pass
-            elif b == 'm': # read memory
-                pass
+                regs = [int(swapb(cmd[i:i+4]), 16) for i in xrange(len(self.cpu.reg_names()))]
+                self.cpu.write_regs(regs)
+
             elif b == 'M': # write memory
-                pass
+                print 'write memory STUB', args
+
+            elif b == 'm': # read memory
+                addr, length = cmd.split(',', 1)
+                addr, length = int(addr, 16), int(length, 16)
+                mem = self.cpu.read_mem(addr, length)
+                self.send(mem.encode('hex'))
+
             elif b == 'c': # continue
-                pass
+                self.cpu._continue()
+                # TODO: status after continue?
+
             elif b == 's': # step
-                pass
+                if cmd:
+                    n = int(cmd)
+                else:
+                    n = 1
+                self.cpu.step(n)
+                # TODO: status after step?
+
             elif b == '?': # last signal
                 self.wait_stop()
+
             elif b == 'H': # set the thread
                 self.send('OK')
+
             else:
                 print 'unknown command:', line
                 self.send('')
                 self.nak()
 
     def send_tdesc(self, addr, length):
-        desc = MSP430.tdesc()[addr:length]
+        desc = self.cpu.tdesc()[addr:length]
         if desc:
             self.send('m' + desc)
         else:
@@ -198,25 +228,32 @@ class Client(GDBClient):
 
     def wait_stop(self):
         sig = 2
-        pc = 2
-        self.send('T%02x%02x:%s;' % (sig, pc, '00000001'))
+        pc = 'pc'
+        self.send('T%02x%s:%s;thread:1;%s' % (sig, pc, '00000001', ""))
 
 
 class MicroGDB(object):
-    def __init__(self):
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind((config.GDB_HOST, config.GDB_PORT))
-        self.server.listen(1)
+    def __init__(self, cpu):
+        self.cpu = cpu
+        server = self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+                          server.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) | 1)
+        server.bind((config.GDB_HOST, config.GDB_PORT))
+        server.listen(1)
         print 'Hosting GDB server on {}:{}'.format(*self.server.getsockname())
 
     def pump(self):
         while True:
             client, addr = self.server.accept()
             print 'GDB connection from {}:{}'.format(*addr)
-            Client(client).run()
+            Client(client, cpu=self.cpu).run()
             print 'Lost connection to {}:{}'.format(*addr)
 
 
 if __name__ == '__main__':
-    gdb = MicroGDB()
-    gdb.pump()
+    import api
+    gdb = MicroGDB(cpu=CorruptionMSP(api))
+    try:
+        gdb.pump()
+    except KeyboardInterrupt:
+        print
