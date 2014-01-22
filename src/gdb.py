@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import re
 import select
 import socket
@@ -215,8 +217,6 @@ class MicroGDB(object):
             print 'Lost connection to {}:{}'.format(*addr)
 
 
-def spawn():
+if __name__ == '__main__':
     gdb = MicroGDB()
-    thread = threading.Thread(target=gdb.pump)
-    thread.daemon = True
-    thread.start()
+    gdb.pump()
