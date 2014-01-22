@@ -198,7 +198,7 @@ class Client(GDBClient):
 
             elif b == 'c': # continue
                 self.cpu._continue()
-                # TODO: status after continue?
+                self.wait()
 
             elif b == 's': # step
                 if cmd:
@@ -206,10 +206,10 @@ class Client(GDBClient):
                 else:
                     n = 1
                 self.cpu.step(n)
-                # TODO: status after step?
+                self.wait()
 
             elif b == '?': # last signal
-                self.wait_stop()
+                self.wait()
 
             elif b == 'H': # set the thread
                 self.send('OK')
@@ -226,10 +226,9 @@ class Client(GDBClient):
         else:
             self.send('l')
 
-    def wait_stop(self):
-        sig = 2
-        pc = 'pc'
-        self.send('T%02x%s:%s;thread:1;%s' % (sig, pc, '00000001', ""))
+    def wait(self):
+        sig, pc = self.cpu.wait()
+        self.send('T%02x%s:%s;thread:1;' % (sig, 'pc', swapb('%.4x' % pc)))
 
 
 class MicroGDB(object):

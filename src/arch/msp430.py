@@ -1,4 +1,5 @@
 from common import tdesc, features, register
+import time
 
 
 class MSP430(object):
@@ -60,3 +61,22 @@ class CorruptionMSP(object):
 
     def step(self, n=1):
         self.cpu.step(n)
+
+    def wait(self, timeout=30):
+        start = time.time()
+        while time.time() - start < timeout:
+            state = self.cpu.snapshot()
+            step = int(state['state'])
+            pc = state['regs'][0]
+            if step == 4:
+                print 'we need input'
+            elif step == 2:
+                return 3, pc
+            elif step == 1:
+                print 'running'
+            elif step == 0:
+                return 0, pc
+
+            time.sleep(0.5)
+
+        return 0, 0
