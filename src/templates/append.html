@@ -36,4 +36,36 @@ cpu._dump =
             style: "visibility:hidden; display:none"
         }).appendTo(document.body);
     }
+
+cpu._highlight =
+    function() {
+        $('.usedmemory pre span').click((function() {
+            var border = '1px orange dashed';
+            var handler = function(e) {
+                var el = e.target;
+                var addr = el.id.replace('memorylocation', '');
+                if (! addr) {
+                    return;
+                }
+                el = $(el);
+                var parent = el.parent();
+                parent.children('.usedmemory pre span').removeAttr('style');
+                var real = parent.data('real-addr');
+                var cur = parent.html().match(/^[a-f0-9]+/)[0];
+                if (addr != cur && addr != real) {
+                    el.css('border', border);
+                }
+                if (! real) {
+                    parent.data('real-addr', cur);
+                    real = cur;
+                }
+                if (addr == cur) {
+                    addr = real;
+                }
+                parent.html(parent.html().replace(cur, addr));
+                parent.children('.usedmemory pre span').click(handler);
+            };
+            return handler;
+        })());
+    };
 </script>
