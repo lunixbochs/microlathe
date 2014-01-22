@@ -6,7 +6,9 @@ Enhance your LockIT Pro JTAG experience with a GDB stub and bonus debugger comma
 Usage
 ---------
 
-First, install Redis and Python requirements.
+First, install Redis via your system's package manager (or source, if you roll like that).
+
+Then the Python requirements:
 
     pip install -r requirements.txt
 
