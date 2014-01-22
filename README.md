@@ -6,10 +6,15 @@ Enhance your LockIT Pro JTAG experience with a GDB stub and bonus debugger comma
 Usage
 ---------
 
-You need Redis installed and running.
+First, install Redis and Python requirements.
 
     pip install -r requirements.txt
-    src/run.py
+
+Next, run the proxy `src/run.py` and login to http://localhost:1337/
+
+You can then run the GDB stub via `src/gdb.py` and connect to it with `msp430-gdb -ex 'target remote localhost:1338'`
+
+You can also write standalone scripts against the web API. Check out `src/solve.py` for an example.
 
 Disclaimer
 ----------
