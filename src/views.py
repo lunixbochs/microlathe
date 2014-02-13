@@ -47,10 +47,10 @@ def proxy_dump():
     return Response(mem, content_type='application/octet_stream')
 
 
-@app.route('/proxy/needs_update')
+@app.route('/proxy/refresh')
 def proxy_needs_update():
     pipe = redis.pipeline()
-    pipe.get(config.UPDATE_KEY)
-    pipe.delete(config.UPDATE_KEY)
-    flag = bool(pipe.execute()[0])
-    return json.dumps(flag)
+    pipe.get(config.REFRESH_KEY)
+    pipe.delete(config.REFRESH_KEY)
+    data = pipe.execute()[0]
+    return json.dumps(data)

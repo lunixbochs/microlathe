@@ -60,13 +60,26 @@ def post(path, data=None, headers=None):
 
 
 def refresh(func):
-    def wrap(*args, **kwargs):
-        ret = func(*args, **kwargs)
-        redis.set(config.UPDATE_KEY, True)
-        return ret
+    if not hasattr(func, '__call__'):
+        data = func
+        early = True
+    else:
+        data = 'update'
+        early = False
 
-    wrap.__name__ = func.__name__
-    return wrap
+    def decorate(dfunc):
+        def wrap(*args, **kwargs):
+            ret = dfunc(*args, **kwargs)
+            redis.set(config.REFRESH_KEY, data)
+            return ret
+
+        wrap.__name__ = dfunc.__name__
+        return wrap
+
+    if early:
+        return decorate
+
+    return decorate(func)
 
 
 class CPU:
@@ -132,7 +145,7 @@ class CPU:
     def stepcount(self):
         return self.get('/cpu/dbg/stepcount')
 
-    @refresh
+    @refresh('continue')
     def _continue(self):
         return self.post('/cpu/dbg/continue')
 

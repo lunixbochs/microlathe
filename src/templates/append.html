@@ -69,10 +69,21 @@ cpu._highlight =
         })());
     };
 
+function hide_io() {
+    $('#io_outer').hide();
+    $('#gray_bg').hide();
+}
+
 setInterval(function() {
-    $.ajax('/proxy/needs_update').done(function(update) {
-        if (update == 'true') {
+    $.ajax('/proxy/refresh').done(function(action) {
+        action = JSON.parse(action);
+        if (action == 'update') {
+            hide_io();
             cpu.update();
+        } else if (action == 'continue') {
+            if (null == cpu.update_int) {
+                cpu.update_int = setInterval(cpu.update, 1e3), setTimeout(cpu.update, 300);
+            }
         }
     });
 }, 1000);

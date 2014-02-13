@@ -117,6 +117,7 @@ class CorruptionMSP(MSP430):
 
     def wait(self, timeout=30):
         start = time.time()
+        last_step = None
         while time.time() - start < timeout:
             state = self.cpu.snapshot()
             output = state['new_output']
@@ -126,16 +127,17 @@ class CorruptionMSP(MSP430):
 
             step = int(state['state'])
             pc = state['regs'][0]
-            if step == 4:
-                line = raw_input('? ')
-                self.send_input(line)
-            elif step == 2:
-                return 3, pc
-            elif step == 1:
-                print 'running'
-            elif step == 0:
-                return 0, pc
+            if last_step != step:
+                if step == 4:
+                    print 'waiting for input'
+                elif step == 2:
+                    return 3, pc
+                elif step == 1:
+                    print 'running'
+                elif step == 0:
+                    return 0, pc
 
+            last_step = step
             time.sleep(0.5)
 
         return 0, 0
