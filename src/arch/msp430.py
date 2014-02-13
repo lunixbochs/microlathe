@@ -60,27 +60,38 @@ class MemBuffer(object):
         return pages[clip:clip+length]
 
 
-class CorruptionMSP(object):
+class CorruptionMSP(MSP430):
     def __init__(self, api):
         # super(self.__class__, self).__init__()
         self.api = api
         self.cpu = api.cpu
         self.reset()
+        self.reg_cache = None
 
     def reset(self):
         self.cache = MemBuffer(self.read_mem_raw)
         self.cpu.reset()
         print 'Level:', self.api.whoami()['level']
+        self.reg_cache = None
 
     def send_input(self, line):
         self.cpu.send_input(line)
 
     def read_regs(self):
         snapshot = self.cpu.snapshot()
-        return snapshot['regs']
+        regs = snapshot['regs']
+        self.reg_cache = regs
+        return regs
 
     def write_regs(self, regs):
-        for name, value in zip(self.reg_names(), regs):
+        if not self.reg_cache:
+            self.reg_cache = regs
+
+        for i, t in enumerate(zip(self.reg_names(), regs)):
+            name, value = t
+            if self.reg_cache[i] == value:
+                continue
+            self.reg_cache[i] = value
             self.cpu.let(name, value)
 
     def read_mem_raw(self, addr, length):

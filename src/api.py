@@ -160,7 +160,7 @@ class CPU:
                 i = target.lstrip('r')
             self.set_reg(i, value)
         else:
-            self.set_mem(i, value)
+            self.set_mem(target, value)
 
     def snapshot(self):
         return self.get('/cpu/snapshot')
