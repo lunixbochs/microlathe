@@ -93,7 +93,8 @@ class CorruptionMSP(object):
         return self.cache.read(addr, length)
 
     def write_mem(self, addr, data):
-        print 'write_mem stub'
+        for i in xrange(len(data), 2):
+            self.cpu.set_mem(addr + i, data[i:i+2])
 
     def _continue(self):
         self.cache.clear()

@@ -212,6 +212,16 @@ class Client(GDBClient):
                 mem = self.cpu.read_mem(addr, length)
                 self.send(mem.encode('hex'))
 
+            elif b == 'Z': # add breakpoint
+                t, addr, kind = cmd.split(',', 2)
+                print t, addr, kind
+                self.send('')
+
+            elif b == 'z': # remove breakpoint
+                t, addr, kind = cmd.split(',', 2)
+                print t, addr, kind
+                self.send('')
+
             elif b == 'c': # continue
                 self.cpu._continue()
                 self.wait()

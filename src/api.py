@@ -1,6 +1,7 @@
 import base64
 import json
 import requests
+import thread
 import urllib
 
 from app import redis
@@ -42,7 +43,7 @@ def request(method, path, headers=None, **kwargs):
         method, url(path), headers=headers, cookies=cookies(), **kwargs)
     try:
         return r.json()
-    except Exception, e:
+    except Exception:
         print r.text
 
 
@@ -56,6 +57,16 @@ def post(path, data=None, headers=None):
         'content-type': 'application/json',
     })
     return request('post', path, data=json.dumps(data), headers=headers)
+
+
+def refresh(func):
+    def wrap(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        redis.set(config.UPDATE_KEY, True)
+        return ret
+
+    wrap.__name__ = func.__name__
+    return wrap
 
 
 class CPU:
@@ -72,9 +83,11 @@ class CPU:
             data = {'body': {}}
         return post(path, data=data, headers=headers)
 
+    @refresh
     def set_reg(self, reg, value):
-        self.post('/cpu/regs', {'reg': r, 'val': value})
+        self.post('/cpu/regs', {'reg': reg, 'val': value})
 
+    @refresh
     def set_mem(self, addr, value):
         self.post('/cpu/updatememory', {'addr': addr, 'val': value})
 
@@ -86,6 +99,7 @@ class CPU:
         self.post('/cpu/load')
         self.reset()
 
+    @refresh
     def reset(self, debug=True):
         if debug:
             j = self.post('/cpu/reset/debug')
@@ -93,15 +107,19 @@ class CPU:
             j = self.post('/cpu/reset/nodebug')
         return j['data']['success']
 
+    @refresh
     def send_input(self, data):
         return self.post('/cpu/send_input', data={'body': data})
 
+    @refresh
     def step_out(self):
         return self.post('/cpu/dbg/step_out')
 
+    @refresh
     def step_over(self):
         return self.post('/cpu/dbg/step_over')
 
+    @refresh
     def step(self, n=1):
         if n > 1:
             return self.post('/cpu/dbg/stepn/{}'.format(n))
@@ -114,12 +132,15 @@ class CPU:
     def stepcount(self):
         return self.get('/cpu/dbg/stepcount')
 
+    @refresh
     def _continue(self):
         return self.post('/cpu/dbg/continue')
 
+    @refresh
     def _break(self, addr):
         return self.post('/cpu/dbg/event', data={'addr': addr, 'event': 0})
 
+    @refresh
     def unbreak(self, addr):
         return self.post('/cpu/dbg/event', data={'addr': addr, 'event': -1})
 
@@ -130,6 +151,7 @@ class CPU:
         else:
             return base64.b64decode(data['raw'])
 
+    @refresh
     def let(self, target, value):
         if target.startswith('r') or target in self.regs:
             if target in self.regs:

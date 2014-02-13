@@ -1,9 +1,9 @@
 from bs4 import BeautifulSoup
 from datetime import timedelta
 from flask import (
-    Response,
     render_template,
     request,
+    Response,
 )
 import json
 from werkzeug.routing import Rule
@@ -45,3 +45,12 @@ def router(path=''):
 def proxy_dump():
     mem = ''.join(api.cpu.read(i, 1024) for i in xrange(0, 0xffff, 1024))
     return Response(mem, content_type='application/octet_stream')
+
+
+@app.route('/proxy/needs_update')
+def proxy_needs_update():
+    pipe = redis.pipeline()
+    pipe.get(config.UPDATE_KEY)
+    pipe.delete(config.UPDATE_KEY)
+    flag = bool(pipe.execute()[0])
+    return json.dumps(flag)
